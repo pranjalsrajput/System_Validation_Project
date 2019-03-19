@@ -5,3 +5,11 @@ The main task of the project is to test and validate the correctness of the syst
 # Software Used
 
 mcrl2 version 201808.0
+
+# Results
+
+ltsView of the system shows that system is deadlock free.
+
+<img src="/images/ltsViewWithoutDeadlocks.PNG">
+
+<img src="/images/ltsView3D.PNG">
