@@ -1,0 +1,1 @@
+[true*]( [pick(InputStack1) . !drop(Airlock1)* . dropR3(Lamp)]false)

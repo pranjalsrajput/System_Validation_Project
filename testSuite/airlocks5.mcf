@@ -1,0 +1,2 @@
+[true*]( [LtoR3_pick(Airlock1) . 
+RtoA_drop_confirmed(Airlock2)* . RtoA_drop_confirmed(Airlock1) ]false)

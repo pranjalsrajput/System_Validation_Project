@@ -1,0 +1,1 @@
+[true*]( [pick(InputStack1) . !RtoA_wait_open_confirmed(Airlock1)* . drop(Airlock1)]false)

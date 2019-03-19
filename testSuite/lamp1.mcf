@@ -1,0 +1,1 @@
+[true*]( [R3toL_drop(Airlock1) . !dropR3(Lamp)* . LtoR3_pick(Airlock1) ]false)

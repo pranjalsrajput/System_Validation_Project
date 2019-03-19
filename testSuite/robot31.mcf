@@ -1,0 +1,1 @@
+[true*]( [LtoR3_pick(Airlock1) . !R3toL_drop(Airlock1)* . pickR3(Airlock1) ]false)

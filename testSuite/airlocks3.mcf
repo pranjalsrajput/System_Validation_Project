@@ -1,0 +1,1 @@
+[true*]( [open(DO, Airlock1) . !close(DO, Airlock1)* . open(DI, Airlock1)]false)

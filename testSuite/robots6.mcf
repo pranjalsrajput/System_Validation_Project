@@ -1,0 +1,1 @@
+[true*]( [pick(Airlock2) . !AtoR_pick_confirmed(Airlock2)* . drop(OutputStack2)]false)

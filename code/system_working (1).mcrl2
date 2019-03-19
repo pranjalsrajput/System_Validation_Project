@@ -1,0 +1,168 @@
+sort
+	Location = struct Lamp | Airlock1| Airlock2 | InputStack1 | InputStack2 | OutputStack1 | OutputStack2 | Unknown;
+	RobotState = struct MovingUnprocessed | MovingProcessed | Waiting | Idle;
+	StackState = struct Empty | Full;
+	
+	Door = struct DO | DI;
+	Robot = struct R1 | R2;
+	AirlockState = struct Unprocessed | Processed | AirlockIdle; 
+
+	LampState = struct On | Off;
+
+act
+	moveTo: Location; 
+	pick, drop, pickR3,dropR3: Location;
+
+	open: Door # Location;
+	close: Door # Location;
+
+%L and R3 communication
+	LtoR3_wait_drop, LtoR3_command_pick: Location;
+	R3toL_command_drop, R3toL_wait_pick: Location;
+
+%A's and R3 communication 
+	AtoR3_command_pick, AtoR3_wait_drop: Location;  
+	R3toA_wait_pick, R3toA_command_drop: Location;
+	
+	AtoR3_wait_pick_confirmed: Location;
+	R3toA_command_pick_confirmed: Location;
+	AtoR3_wait_drop_confirmed: Location;
+	R3toA_command_drop_confirmed: Location;
+	
+	R3toA_wait_open_confirmed: Location;
+	AtoR3_command_open_confirmed: Location;
+
+%A's and R's communication
+	AtoR_command_pick, AtoR_wait_drop: Location;
+	RtoA_wait_pick, RtoA_command_drop: Location;
+	
+	AtoR_wait_pick_confirmed: Location;
+	RtoA_command_pick_confirmed: Location;
+
+	AtoR_wait_drop_confirmed: Location;
+	RtoA_command_drop_confirmed: Location;
+	RtoA_drop_confirmed: Location;	
+
+	RtoA_wait_open_confirmed: Location;
+	AtoR_command_open_confirmed: Location;
+	AtoR_open_confirmed: Location;
+
+	
+	
+
+%A's and IS's communication
+	RtoIS_wait_pick: Location;
+	IStoR_command_pick: Location;
+	IStoR_wait_pick_confirmed: Location;
+	RtoIS_command_pick_confirmed: Location;
+
+%A's and OS's communication
+	OStoR_wait_drop_confirmed: Location;
+	RtoOS_command_drop_confirmed: Location;
+
+%IS's and OS's communication
+	IStoOS_wait_processed_confirmed: Location;
+	OStoIS_command_processed_confirmed: Location;
+
+%Synced actions
+	R3toL_drop, LtoR3_pick, R3toA_drop, AtoR3_pick, RtoA_drop, AtoR_pick: Location;
+	AtoR3_pick_confirmed, AtoR_pick_confirmed, AtoR3_drop_confirmed: Location;
+	AtoR3_open_confirmed: Location;
+	IStoR_pick, IStoR_pick_confirmed: Location;
+	RtoOS_drop_confirmed: Location;
+	IStoOS_processed_confirmed: Location;
+	
+
+proc
+	InputStack(state:StackState, location:Location) = 
+		(state == Full) -> IStoR_command_pick(location) . IStoR_wait_pick_confirmed(location) . InputStack(Empty, location) +
+		(state == Empty && location == InputStack1) -> IStoOS_wait_processed_confirmed(OutputStack1) . InputStack(Full, InputStack1) + 
+		(state == Empty && location == InputStack2) -> IStoOS_wait_processed_confirmed(OutputStack2) . InputStack(Full, InputStack2);
+
+
+	OutputStack(location:Location) = 
+		(location == OutputStack1) -> OStoR_wait_drop_confirmed(OutputStack1) . OStoIS_command_processed_confirmed(OutputStack1) . OutputStack(OutputStack1) +
+		(location == OutputStack2) -> OStoR_wait_drop_confirmed(OutputStack2) . OStoIS_command_processed_confirmed(OutputStack2) . OutputStack(OutputStack2) ; 
+
+	Robot(state:RobotState, airlock:Location, inputStack:Location, outputStack:Location) = 
+		(state == Idle && inputStack == InputStack1) -> RtoIS_wait_pick(InputStack1) . Robot(MovingUnprocessed, Airlock1, InputStack1, OutputStack1) +
+		(state == Idle && inputStack == InputStack2) -> RtoIS_wait_pick(InputStack2) . Robot(MovingUnprocessed, Airlock2, InputStack2, OutputStack2) +
+		(state == Waiting && inputStack == InputStack1) -> RtoA_wait_pick(Airlock1) . Robot(MovingProcessed, Airlock1, InputStack1, OutputStack1) +
+		(state == Waiting && inputStack == InputStack2) -> RtoA_wait_pick(Airlock2) . Robot(MovingProcessed, Airlock2, InputStack2, OutputStack2) +
+		(state == MovingUnprocessed) -> moveTo(inputStack) . pick(inputStack) . RtoIS_command_pick_confirmed(inputStack) . moveTo(airlock) . 
+RtoA_command_drop(airlock) . RtoA_wait_open_confirmed(airlock) . drop(airlock) . RtoA_command_drop_confirmed(airlock) . 
+Robot(Waiting, airlock, inputStack, outputStack) +
+		(state == MovingProcessed) -> moveTo(airlock) . pick(airlock) . RtoA_command_pick_confirmed(airlock) . moveTo(outputStack) . drop(outputStack) .
+RtoOS_command_drop_confirmed(outputStack) . Robot(Idle, airlock, inputStack, outputStack);
+	
+	Robot3(state:RobotState, waferSource:Location) = 
+		(state == Idle) -> R3toA_wait_pick(Airlock1) . Robot3(MovingUnprocessed, Airlock1) +
+		(state == Idle) -> R3toA_wait_pick(Airlock2) . Robot3(MovingUnprocessed, Airlock2) +
+		(state == Waiting) -> R3toL_wait_pick(Airlock1) . Robot3(MovingProcessed, Airlock1) +
+		(state == Waiting) -> R3toL_wait_pick(Airlock2) . Robot3(MovingProcessed, Airlock2) +
+		(state == MovingUnprocessed) -> moveTo(waferSource) . pickR3(waferSource) . R3toA_command_pick_confirmed(waferSource) . 
+moveTo(Lamp) . R3toL_command_drop(waferSource) . dropR3(Lamp) . Robot3(Waiting, waferSource) +
+		(state == MovingProcessed) -> moveTo(Lamp) . pickR3(Lamp) . moveTo(waferSource) . R3toA_command_drop(waferSource) . 
+R3toA_wait_open_confirmed(waferSource) . dropR3(waferSource) . R3toA_command_drop_confirmed(waferSource) . Robot3(Idle, Unknown);
+
+	Airlock(state:AirlockState, waferSource:Location) =
+		(state == AirlockIdle && waferSource == Airlock1) -> AtoR_wait_drop(Airlock1) . Airlock(Unprocessed, Airlock1) + 
+		(state == AirlockIdle && waferSource == Airlock2) -> AtoR_wait_drop(Airlock2) . Airlock(Unprocessed, Airlock2) + 
+		(state == AirlockIdle && waferSource == Airlock1) -> AtoR3_wait_drop(Airlock1) . Airlock(Processed, Airlock1) +
+		(state == AirlockIdle && waferSource == Airlock2) -> AtoR3_wait_drop(Airlock2) . Airlock(Processed, Airlock2) +
+		(state == Unprocessed) -> open(DO, waferSource) .AtoR_command_open_confirmed(waferSource). AtoR_wait_drop_confirmed(waferSource) . close(DO, waferSource) . open(DI, waferSource) . AtoR3_command_pick(waferSource) . 
+AtoR3_wait_pick_confirmed(waferSource) .  close(DI, waferSource) . Airlock(AirlockIdle, waferSource) +
+		(state == Processed) -> open(DI, waferSource) . AtoR3_command_open_confirmed(waferSource) . AtoR3_wait_drop_confirmed(waferSource) .
+close(DI, waferSource) . open(DO, waferSource) . AtoR_command_pick(waferSource) . AtoR_wait_pick_confirmed(waferSource) . 
+close(DO, waferSource)  . Airlock(AirlockIdle, waferSource);
+
+	Lamp(state:LampState, waferSource:Location) = 
+		(state == Off) -> LtoR3_wait_drop(Airlock1) . Lamp(On, Airlock1) + 
+		(state == Off) -> LtoR3_wait_drop(Airlock2) . Lamp(On, Airlock2) + 
+		(state == On) -> LtoR3_command_pick(waferSource) . Lamp(Off, waferSource);
+		
+init
+	allow({moveTo, open, close, pick, drop, pickR3, dropR3,
+			R3toL_drop, LtoR3_pick, R3toA_drop, AtoR3_pick, RtoA_drop, AtoR_pick, 
+			AtoR3_pick_confirmed, AtoR3_drop_confirmed, AtoR_pick_confirmed, AtoR_open_confirmed, RtoA_drop_confirmed, AtoR3_open_confirmed,
+			IStoR_pick, IStoR_pick_confirmed, RtoOS_drop_confirmed,
+			IStoOS_processed_confirmed},
+   comm(
+      {	
+%L and R3 sync
+		LtoR3_wait_drop | R3toL_command_drop -> R3toL_drop,
+		R3toL_wait_pick | LtoR3_command_pick -> LtoR3_pick,
+
+%A's and R3 sync
+		AtoR3_wait_drop | R3toA_command_drop -> R3toA_drop,
+		R3toA_wait_pick | AtoR3_command_pick -> AtoR3_pick,
+		AtoR3_wait_pick_confirmed | R3toA_command_pick_confirmed -> AtoR3_pick_confirmed,
+		AtoR3_wait_drop_confirmed | R3toA_command_drop_confirmed -> AtoR3_drop_confirmed,
+		R3toA_wait_open_confirmed | AtoR3_command_open_confirmed -> AtoR3_open_confirmed,
+
+%A's and R's sync
+		AtoR_wait_drop | RtoA_command_drop -> RtoA_drop,
+		RtoA_wait_pick | AtoR_command_pick -> AtoR_pick,
+		AtoR_wait_pick_confirmed | RtoA_command_pick_confirmed -> AtoR_pick_confirmed,
+		RtoA_wait_open_confirmed | AtoR_command_open_confirmed -> AtoR_open_confirmed,
+		AtoR_wait_drop_confirmed | RtoA_command_drop_confirmed -> RtoA_drop_confirmed,
+		
+		
+%R's and IS's sync
+		RtoIS_wait_pick | IStoR_command_pick -> IStoR_pick,
+		IStoR_wait_pick_confirmed | RtoIS_command_pick_confirmed -> IStoR_pick_confirmed,
+
+%R's and OS's sync
+		OStoR_wait_drop_confirmed | RtoOS_command_drop_confirmed -> RtoOS_drop_confirmed,
+
+%IS'S and OS's sync
+		IStoOS_wait_processed_confirmed | OStoIS_command_processed_confirmed -> IStoOS_processed_confirmed},
+	
+     Robot3(Idle, Unknown) || 
+	Airlock(AirlockIdle, Airlock1) || Airlock(AirlockIdle, Airlock2) || 
+	Lamp(Off, Unknown) || 
+	Robot(Idle, Airlock1, InputStack1, OutputStack1) || Robot(Idle, Airlock2, InputStack2, OutputStack2) ||
+	InputStack(Full, InputStack1) || InputStack(Full, InputStack2) ||
+	OutputStack(OutputStack1) || OutputStack(OutputStack2)
+));
+
